@@ -39,16 +39,19 @@ class Youtube_mp3():
             type='video',
             maxResults=max_results
         )
-        response = request.execute()
-
-        video_links = []
-        i = 1
-        for item in response['items']:
-            video_id = item['id']['videoId']
-            video_url = f'https://www.youtube.com/watch?v={video_id}'
-            self.dict[i] = video_url
-        print(self.dict)
-
+        try:
+            response = request.execute()
+            video_links = []
+            i = 1
+            for item in response['items']:
+                video_id = item['id']['videoId']
+                video_url = f'https://www.youtube.com/watch?v={video_id}'
+                self.dict[i] = video_url
+                i += 1
+            return True # Indicate successful search
+        except Exception as e:
+            print(f"Error searching YouTube: {e}")
+            return False # Indicate search failure
 
 
     def get_search_items(self, max_search):
@@ -69,28 +72,46 @@ class Youtube_mp3():
                 i += 1
             except Exception as e:
                 print(f"Error extracting video info: {e}")
-  
+
     def play_media(self, num):
+      if num not in self.dict:
+          print("Invalid song number.")
+          return
+
       url = self.dict[int(num)]
-      yt = YouTube(url)
-      audio_stream = yt.streams.filter(only_audio=True).first()
-      audio_file = audio_stream.download(filename='song.mp3', output_path='.', skip_existing=True)
-      song = pyglet.media.load(audio_file)
+      try:
+          yt = YouTube(url)
+          audio_stream = yt.streams.filter(only_audio=True).first()
+          if audio_stream is None:
+              print("No suitable audio stream found.")
+              return
+          audio_file = audio_stream.download(filename='song.mp3', output_path='.', skip_existing=True)
+          song = pyglet.media.load(audio_file)
+          play_websocket()
+      except Exception as e:
+          print(f"Error playing media: {e}")
 
-      play_websocket()
 
-  
     def download_media(self, num):
+          if num not in self.dict:
+              print("Invalid song number.")
+              return
           url = self.dict[int(num)]
           yt = YouTube(url)
           audio_stream = yt.streams.filter(only_audio=True).first()
+          if audio_stream is None:
+              print("No suitable audio stream found.")
+              return
           song_name = self.dict_names[int(num)]
           print("Downloading: {0}.".format(song_name))
           file_name = input("Filename (Enter to keep default): ")
           if not file_name:
               file_name = song_name
-          audio_file = audio_stream.download(filename=file_name, output_path='.', skip_existing=True, filename_prefix='audio_')
-          print("Downloaded as:", audio_file)
+          try:
+              audio_file = audio_stream.download(filename=file_name, output_path='.', skip_existing=True, filename_prefix='audio_')
+              print("Downloaded as:", audio_file)
+          except Exception as e:
+              print(f"Error downloading media: {e}")
 
 
     def bulk_download(self, url):
@@ -121,13 +142,6 @@ if __name__ == '__main__':
         search = input("Youtube Search: ")
         old_search = search
         max_search = 5
-        # if search == '':
-        #     print('\nFetching for: {0} on youtube.'.format(old_search.title()))
-        #     x.url_search(search, max_search)
-        #     x.get_search_items(max_search)
-        #     song_number = input('Input song number: ')
-        #     x.play_media(song_number)
-
         x.dict = {}
         x.dict_names = {}
 
@@ -138,14 +152,17 @@ if __name__ == '__main__':
         download = input('1. Play Live Music\n2. Download Mp3 from Youtube.\n')
         if search != 'q' and (download == '1' or download == ''):
             print('\nFetching for: {0} on youtube.'.format(search.title()))
-            x.url_search(search, max_search)
-            x.get_search_items(max_search)
-            song_number = input('Input song number: ')
-            x.play_media(song_number)
+            if x.url_search(search, max_search): # Check for successful search
+                x.get_search_items(max_search)
+                song_number = input('Input song number: ')
+                x.play_media(song_number)
+            else:
+                print("No songs found for your search query.")
         elif download == '2':
             print('\nDownloading {0} (conveniently) from youtube servers.'.format(search.title()))
-            x.url_search(search, max_search)
-            x.get_search_items(max_search)
-            song_number = input('Input song number: ')
-            x.download_media(song_number)
-#github commit
+            if x.url_search(search, max_search): # Check for successful search
+                x.get_search_items(max_search)
+                song_number = input('Input song number: ')
+                x.download_media(song_number)
+            else:
+                print("No songs found for your search query.")
