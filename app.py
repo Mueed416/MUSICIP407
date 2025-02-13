@@ -41,13 +41,17 @@ class Youtube_mp3():
         )
         try:
             response = request.execute()
-            video_links = []
+            if not response.get('items'):
+                print("No songs found")
+                return False
+                
             i = 1
             for item in response['items']:
                 video_id = item['id']['videoId']
                 video_url = f'https://www.youtube.com/watch?v={video_id}'
                 self.dict[i] = video_url
                 i += 1
+            print("Found song:", self.dict[1])  
             return True # Indicate successful search
         except Exception as e:
             print(f"Error searching YouTube: {e}")
